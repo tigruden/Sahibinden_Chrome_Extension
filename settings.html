@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Emlak Crawler Ayarları</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .settings-container {
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .buttons {
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button.test {
+            background-color: #2196F3;
+        }
+        button.test:hover {
+            background-color: #1976D2;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+            display: block;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="settings-container">
+        <h1>Airtable Ayarları</h1>
+        <div class="form-group">
+            <label for="apiKey">API Key:</label>
+            <input type="text" id="apiKey" placeholder="Airtable API Key'inizi girin">
+        </div>
+        <div class="form-group">
+            <label for="baseId">Base ID:</label>
+            <input type="text" id="baseId" placeholder="Airtable Base ID'nizi girin">
+        </div>
+        <div class="form-group">
+            <label for="portfolioTable">Portföy Tablosu Adı:</label>
+            <input type="text" id="portfolioTable" placeholder="Portföy tablosunun adını girin">
+        </div>
+        <div class="form-group">
+            <label for="customersTable">Müşteriler Tablosu Adı:</label>
+            <input type="text" id="customersTable" placeholder="Müşteriler tablosunun adını girin">
+        </div>
+        <div class="buttons">
+            <button id="saveButton">Kaydet</button>
+            <button id="testButton" class="test">Bağlantıyı Test Et</button>
+        </div>
+        <div id="status" class="status"></div>
+    </div>
+    <script src="services/airtableService.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>

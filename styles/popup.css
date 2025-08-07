@@ -1,0 +1,52 @@
+    body {
+      width: 300px;
+      padding: 10px;
+    }
+    .button-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    button {
+      width: 100%;
+      padding: 8px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    #startButton {
+      background-color: #4CAF50;
+      color: white;
+    }
+    #startButton:hover {
+      background-color: #45a049;
+    }
+    #exportButton {
+      background-color: #FF9800;
+      color: white;
+    }
+    #exportButton:hover {
+      background-color: #F57C00;
+    }
+    #settingsButton {
+      background-color: #2196F3;
+      color: white;
+    }
+    #settingsButton:hover {
+      background-color: #1976D2;
+    }
+    #status {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    h2 {
+      margin: 0;
+    }

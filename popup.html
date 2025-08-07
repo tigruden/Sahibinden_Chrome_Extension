@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Emlak Crawler</title>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="styles/popup.css">
+</head>
+<body>
+  <div class="header">
+    <h2>Emlak Crawler</h2>
+  </div>
+  <div class="button-container">
+    <button id="startButton">Veriyi Çek</button>
+    <button id="exportButton">CSV Olarak İndir</button>
+    <button id="settingsButton">Ayarlar</button>
+  </div>
+  <div id="status"></div>
+  <script src="services/storageService.js"></script>
+  <script src="services/airtableService.js"></script>
+  <script src="handlers/sahibindenHandler.js"></script>
+  <script src="handlers/hepsiEmlakHandler.js"></script>
+  <script src="handlers/emlakjetHandler.js"></script>
+  <script src="crawlManager.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
