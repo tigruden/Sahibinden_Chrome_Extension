@@ -15,9 +15,11 @@ class SahibindenHandler {
     // Ortak yardımcı fonksiyonlar
     static parseCommonData(model) {
         try {
-            // ID bilgisi
+            //#region ID bilgisi
             model["Id"] = window.location.pathname.split('/').pop().replace('detay', '').replace(/\//g, '');
-            
+            //#endregion
+
+            //#region Başlık bilgisi
             // Başlık bilgisi
             const titleElement = document.evaluate(
                 '//*[@id="classifiedDetail"]/div/div[1]/h1',
@@ -28,7 +30,14 @@ class SahibindenHandler {
             ).singleNodeValue;
             model["Başlık"] = titleElement?.textContent.trim();
 
-            // Portföy Sahibi bilgileri
+            // Açıklama Bilgisi
+            const descElement = document.querySelector('#classifiedDescription');
+            if (descElement) {
+                model["Açıklama"] = descElement.textContent.trim();
+            }
+            //#endregion
+
+            //#region Portföy Sahibi bilgileri
             // Ad Soyad
             const ownerElement = document.querySelector('.username-info-area h5 span');
             if (ownerElement) {
@@ -43,28 +52,43 @@ class SahibindenHandler {
                     }
                 }
             }
+            //#endregion
 
-            // Telefon
+            //#region Telefon
             const phoneElement = document.querySelector('.pretty-phone-part.show-part span[data-content]');
-            
-            console.log(phoneElement);
             if (phoneElement) {
                 model["Portföy Sahibi"]["Telefon"] = phoneElement.getAttribute('data-content');
             }
+            //#endregion
 
-            // Fiyat bilgisi
-            model["Fiyat"] = document.querySelector('.classifiedInfo > h3')?.textContent.trim();
-            
-            // Lokasyon bilgisi
-            this.parseLocationData(model);
-            
-        } catch (error) {
-            console.error('Ortak veriler parse edilirken hata:', error);
-        }
-    }
+            //#region Fiyat bilgisi
+            if (model["Alt Kategori"] !== "Kat Karşılığı Satılık") {
+                let price = document.querySelector('.classifiedInfo > h3 > .classified-price-wrapper')?.textContent.trim();
+                price = price.replace(/\./g, '').replace(/,/g, '.').replace(' TL', ''); // Noktaları kaldır, virgülü nokta yap
+                model["Fiyat"] = parseInt(price);
+            }
+            //#endregion
 
-    static parseLocationData(model) {
-        try {
+            //#region Harita koordinatları
+            const mapElement = document.evaluate(
+                '//*[@id="classified-location"]/div[2]/div[2]/a',
+                document,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+            ).singleNodeValue;
+
+            if (mapElement) {
+                const href = mapElement.getAttribute('href');
+                const cbllMatch = href.match(/cbll=([^&]+)/);
+                if (cbllMatch) {
+                    const coordinates = cbllMatch[1];
+                    model["Harita Konumu"] = `${coordinates.split(',')[0]},${coordinates.split(',')[1]}`;
+                }
+            }
+            //#endregion
+
+            //#region  Lokasyon bilgisi
             // Breadcrumb itemlarını bulalım
             const breadcrumbItems = document.evaluate(
                 '//*[@id="container"]/div[2]/ul/li[@class="bc-item"]/a',
@@ -90,8 +114,9 @@ class SahibindenHandler {
                     break;
                 }
             }
+            //#endregion
         } catch (error) {
-            console.error('Lokasyon verisi parse edilirken hata:', error);
+            console.error('Ortak veriler parse edilirken hata:', error);
         }
     }
 
@@ -208,7 +233,8 @@ class SahibindenHandler {
         "Isıtma Tipi": null,
         "Tapu Durumu": null,
         "Asansör": null,
-        "Otopark": null
+        "Otopark": null,
+        "Emlak Tipi": null
     };
     // Genel bina parsing fonksiyonu
     static parseBinaData() {
@@ -216,24 +242,6 @@ class SahibindenHandler {
 
         try {
             this.parseCommonData(model);
-            // Başlık bilgisi
-            const titleElement = document.evaluate(
-                '//*[@id="classifiedDetail"]/div/div[1]/h1',
-                document,
-                null,
-                XPathResult.FIRST_ORDERED_NODE_TYPE,
-                null
-            ).singleNodeValue;
-            model["Başlık"] = titleElement?.textContent.trim();
-            
-            // Açıklama Bilgisi
-            const descElement = document.querySelector('#classifiedDescription');
-            if (descElement) {
-                model["Açıklama"] = descElement.textContent.trim();
-            }
-
-            // Lokasyon bilgisini al
-            this.parseLocationData(model);
 
             // İlan detaylarını XPath ile alalım
             const detailItems = document.evaluate(
@@ -267,6 +275,7 @@ class SahibindenHandler {
                             else if (value.includes('Kiralık')) {
                                 model["Kiralık / Satılık"] = 'Kiralık';
                             }
+                            model["Emlak Tipi"] = value;
                             break;
                         case 'Kat Sayısı':
                             model["Kat Sayısı"] = value;
@@ -305,6 +314,7 @@ class SahibindenHandler {
         }
     }
     //#endregion
+
     //#region Konut Kategorisi Metodları
     static crawlKonut(subCategory) {
         console.log(`Konut alt kategorisi: ${subCategory}`);
@@ -373,7 +383,8 @@ class SahibindenHandler {
         "Ada No": null,
         "Parsel No": null,
         "Asansör": null,
-        "Otopark": null
+        "Otopark": null,
+        "Emlak Tipi": null
     };
 
     // Genel konut parsing fonksiyonu
@@ -403,6 +414,15 @@ class SahibindenHandler {
                 switch (label) {
                     case 'Brüt m²':
                         model["m² (Brüt)"] = value;
+                        break;
+                    case 'Emlak Tipi':
+                        if (value.includes('Satılık')) {
+                            model["Kiralık / Satılık"] = 'Satılık';
+                        }
+                        else if (value.includes('Kiralık')) {
+                            model["Kiralık / Satılık"] = 'Kiralık';
+                        }
+                        model["Emlak Tipi"] = value;
                         break;
                     case 'Net m²':
                         model["m² (Net)"] = value;
@@ -455,28 +475,10 @@ class SahibindenHandler {
                 }
             }
 
-            // Lokasyon bilgisini al
-            this.parseLocationData(model);
-
-            // Harita koordinatları
-            const mapElement = document.querySelector('#gmap');
-            if (mapElement) {
-                model["Harita Konumu"] = {
-                    lat: mapElement.getAttribute('data-lat'),
-                    lng: mapElement.getAttribute('data-lon')
-                };
-            }
-
             // İlan tarihi
             const dateElement = document.querySelector('.classifiedInfo .date');
             if (dateElement) {
                 model["İlan Tarihi"] = dateElement.textContent.trim();
-            }
-
-            // Açıklama
-            const descElement = document.querySelector('#classifiedDescription');
-            if (descElement) {
-                model["Açıklama"] = descElement.textContent.trim();
             }
 
             // Alt kategoriyi set et
@@ -542,6 +544,7 @@ class SahibindenHandler {
         return this.parseKonutData();
     }
     //#endregion
+
     //#region İş Yeri Kategorisi Metodları
     static crawlIsYeri(subCategory) {
         console.log(`İş yeri alt kategorisi: ${subCategory}`);
@@ -659,7 +662,8 @@ class SahibindenHandler {
         "Vitrin / Cephe": null,
         "Ada No": null,
         "Parsel No": null,
-        "Otopark": null
+        "Otopark": null,
+        "Emlak Tipi": null
     };
 
     // Genel iş yeri parsing fonksiyonu
@@ -723,6 +727,15 @@ class SahibindenHandler {
                     case 'Krediye Uygun':
                         model["Krediye Uygun mu?"] = value;
                         break;
+                    case 'Emlak Tipi':
+                        if (value.includes('Satılık')) {
+                            model["Kiralık / Satılık"] = 'Satılık';
+                        }
+                        else if (value.includes('Kiralık')) {
+                            model["Kiralık / Satılık"] = 'Kiralık';
+                        }
+                        model["Emlak Tipi"] = value;
+                        break;
                     case 'Vitrin':
                     case 'Cephe':
                         model["Vitrin / Cephe"] = value;
@@ -739,28 +752,10 @@ class SahibindenHandler {
                 }
             }
 
-            // Lokasyon bilgisini al
-            this.parseLocationData(model);
-
-            // Harita koordinatları
-            const mapElement = document.querySelector('#gmap');
-            if (mapElement) {
-                model["Harita Konumu"] = {
-                    lat: mapElement.getAttribute('data-lat'),
-                    lng: mapElement.getAttribute('data-lon')
-                };
-            }
-
             // İlan tarihi
             const dateElement = document.querySelector('.classifiedInfo .date');
             if (dateElement) {
                 model["İlan Tarihi"] = dateElement.textContent.trim();
-            }
-
-            // Açıklama
-            const descElement = document.querySelector('#classifiedDescription');
-            if (descElement) {
-                model["Açıklama"] = descElement.textContent.trim();
             }
 
             // Alt kategoriyi set et
@@ -956,6 +951,7 @@ class SahibindenHandler {
         // TODO: Büro & Ofis için özel parsing
     }
     //#endregion
+
     //#region Arsa Kategorisi Metodları
     static crawlArsa(subCategory) {
         console.log(`Arsa alt kategorisi: ${subCategory}`);
@@ -974,24 +970,18 @@ class SahibindenHandler {
     }
     // Arsa alt kategori metodları
     static crawlArsaSatilik() {
-        const model = { ...this.ArsaModel };
         console.log('Satılık arsa detayları çekiliyor');
-        model = this.parseArsaData('Satılık');
-        return model;
+        return this.parseArsaData('Satılık');
     }
 
     static crawlArsaKiralik() {
-        const model = { ...this.ArsaModel };
         console.log('Kiralık arsa detayları çekiliyor');
-        model = this.parseArsaData('Kiralık');
-        return model;
+        return this.parseArsaData('Kiralık');
     }
 
     static crawlArsaKatKarsiligi() {
-        const model = { ...this.ArsaModel };
         console.log('Kat karşılığı arsa detayları çekiliyor');
-        model = this.parseArsaData('Kat Karşılığı Satılık');
-        return model;
+        return this.parseArsaData('Kat Karşılığı Satılık');
     }
 
     // Arsa veri modeli
@@ -1013,112 +1003,101 @@ class SahibindenHandler {
         "İlçe": null,
         "Harita Konumu": null,
         "İlan Tarihi": null,
-        "Krediye Uygun mu?": null,
-        "Notlar": null,
         "Tapu Durumu": null,
-        "Arsa Tipi": null,
         "Ada No": null,
         "Parsel No": null,
         "İmar Durumu": null,
         "Kat Karşılığı mı?": null,
         "Kaks / Emsal": null,
-        "Üretilebilecek konut sayısı": null
+        "Emlak Tipi": null
     };
 
     // Genel arsa parsing fonksiyonu
     static parseArsaData(subCategory) {
         const model = { ...this.ArsaModel };
-
+        if (subCategory === "Kat Karşılığı Satılık") {
+            model["Kat Karşılığı mı?"] = 'Evet';
+        }
+        else {
+            model["Kat Karşılığı mı?"] = 'Hayır';
+        }
         try {
+            // Alt kategoriyi set et
+            model["Alt Kategori"] = subCategory;
             // Ortak verileri parse et
             this.parseCommonData(model);
 
-            // İlan tipi (Satılık/Kiralık)
-            const breadcrumbs = document.querySelectorAll('.breadcrumb li');
-            for (const crumb of breadcrumbs) {
-                const text = crumb.textContent.trim();
-                if (text.includes('Satılık') || text.includes('Kiralık')) {
-                    model["Kiralık / Satılık"] = text;
-                    break;
+            // İlan detaylarını XPath ile alalım
+            const detailItems = document.evaluate(
+                '//*[@id="classifiedDetail"]/div/div[2]/div[2]/ul/li',
+                document,
+                null,
+                XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+                null
+            );
+
+            // Her bir detay öğesini işleyelim
+            for (let i = 0; i < detailItems.snapshotLength; i++) {
+                const item = detailItems.snapshotItem(i);
+                const strong = item.querySelector('strong');
+                const span = item.querySelector('span');
+
+                if (strong && span) {
+                    const key = strong.textContent.trim();
+                    const value = span.textContent.trim();
+                    //console.log(`Key: ${key}, Value: ${value}`);
+                    switch (key) {
+                        case 'İlan No':
+                            model["Id"] = value;
+                            break;
+                        case 'İlan Tarihi':
+                            model["İlan Tarihi"] = value;
+                            break;
+                        case 'Türü':
+                        case 'Emlak Tipi':
+                            if (value.includes('Satılık')) {
+                                model["Kiralık / Satılık"] = 'Satılık';
+                            }
+                            else if (value.includes('Kiralık')) {
+                                model["Kiralık / Satılık"] = 'Kiralık';
+                            }
+                            model["Emlak Tipi"] = value;
+                            break;
+                        case 'm²':
+                            model["m² (Brüt)"] = value;
+                            break;
+                        case 'Tapu Durumu':
+                            model["Tapu Durumu"] = value;
+                            break;
+                        case 'Ada No':
+                            model["Ada No"] = value;
+                            break;
+                        case 'Parsel No':
+                            model["Parsel No"] = value;
+                            break;
+                        case 'İmar Durumu':
+                            model["İmar Durumu"] = value;
+                            break;
+                        case 'KAKS (Emsal)':
+                        case 'Kaks (Emsal)':
+                        case 'Emsal':
+                            console.log('Kaks / Emsal:', value);
+                            model["Kaks / Emsal"] = value;
+                            break;
+                        case 'Üretilebilecek Konut Sayısı':
+                            model["Üretilebilecek konut sayısı"] = value;
+                            break;
+                    }
                 }
             }
 
-            // İlan detayları
-            const detailRows = document.querySelectorAll('.classifiedInfoList .classifiedInfo');
-            for (const row of detailRows) {
-                const label = row.querySelector('.label')?.textContent.trim();
-                const value = row.querySelector('.value')?.textContent.trim();
-
-                switch (label) {
-                    case 'm²':
-                    case 'Brüt m²':
-                        model["m² (Brüt)"] = value;
-                        break;
-                    case 'Arsa Tipi':
-                        model["Arsa Tipi"] = value;
-                        break;
-                    case 'İmar Durumu':
-                        model["İmar Durumu"] = value;
-                        break;
-                    case 'Tapu Durumu':
-                        model["Tapu Durumu"] = value;
-                        break;
-                    case 'Kat Karşılığı':
-                        model["Kat Karşılığı mı?"] = value;
-                        break;
-                    case 'Krediye Uygun':
-                        model["Krediye Uygun mu?"] = value;
-                        break;
-                    case 'Ada No':
-                        model["Ada No"] = value;
-                        break;
-                    case 'Parsel No':
-                        model["Parsel No"] = value;
-                        break;
-                    case 'Kaks (Emsal)':
-                    case 'Emsal':
-                        model["Kaks / Emsal"] = value;
-                        break;
-                    case 'Üretilebilecek Konut Sayısı':
-                        model["Üretilebilecek konut sayısı"] = value;
-                        break;
-                }
-            }
-
-            // Lokasyon bilgisini al
-            this.parseLocationData(model);
-
-            // Harita koordinatları
-            const mapElement = document.querySelector('#gmap');
-            if (mapElement) {
-                model["Harita Konumu"] = {
-                    lat: mapElement.getAttribute('data-lat'),
-                    lng: mapElement.getAttribute('data-lon')
-                };
-            }
-
-            // İlan tarihi
-            const dateElement = document.querySelector('.classifiedInfo .date');
-            if (dateElement) {
-                model["İlan Tarihi"] = dateElement.textContent.trim();
-            }
-
-            // Açıklama
-            const descElement = document.querySelector('#classifiedDescription');
-            if (descElement) {
-                model["Açıklama"] = descElement.textContent.trim();
-            }
-
-            // Alt kategoriyi set et
-            model["Alt Kategori"] = subCategory;
 
             console.log('Parsed Arsa Data:', model);
-            return model;
-
         } catch (error) {
-            console.error('Veri parsing hatası:', error);
-            return null;
+            console.error('Arsa data parsing error:', error);
         }
+
+        return model;
     }
     //#endregion
 }
