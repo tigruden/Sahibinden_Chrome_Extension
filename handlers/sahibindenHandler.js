@@ -1,4 +1,100 @@
 class SahibindenHandler {
+    // Türkiye'deki iller
+    static ILLER = [
+        'Adana', 'Adıyaman', 'Afyonkarahisar', 'Ağrı', 'Amasya', 'Ankara', 'Antalya', 'Artvin', 'Aydın', 'Balıkesir',
+        'Bilecik', 'Bingöl', 'Bitlis', 'Bolu', 'Burdur', 'Bursa', 'Çanakkale', 'Çankırı', 'Çorum', 'Denizli',
+        'Diyarbakır', 'Edirne', 'Elazığ', 'Erzincan', 'Erzurum', 'Eskişehir', 'Gaziantep', 'Giresun', 'Gümüşhane', 'Hakkari',
+        'Hatay', 'Isparta', 'Mersin', 'İstanbul', 'İzmir', 'Kars', 'Kastamonu', 'Kayseri', 'Kırklareli', 'Kırşehir',
+        'Kocaeli', 'Konya', 'Kütahya', 'Malatya', 'Manisa', 'Kahramanmaraş', 'Mardin', 'Muğla', 'Muş', 'Nevşehir',
+        'Niğde', 'Ordu', 'Rize', 'Sakarya', 'Samsun', 'Siirt', 'Sinop', 'Sivas', 'Tekirdağ', 'Tokat',
+        'Trabzon', 'Tunceli', 'Şanlıurfa', 'Uşak', 'Van', 'Yozgat', 'Zonguldak', 'Aksaray', 'Bayburt', 'Karaman',
+        'Kırıkkale', 'Batman', 'Şırnak', 'Bartın', 'Ardahan', 'Iğdır', 'Yalova', 'Karabük', 'Kilis', 'Osmaniye',
+        'Düzce'
+    ];
+
+    // Ortak yardımcı fonksiyonlar
+    static parseCommonData(model) {
+        try {
+            // ID bilgisi
+            model["Id"] = window.location.pathname.split('/').pop().replace('detay', '').replace(/\//g, '');
+            
+            // Başlık bilgisi
+            const titleElement = document.evaluate(
+                '//*[@id="classifiedDetail"]/div/div[1]/h1',
+                document,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+            ).singleNodeValue;
+            model["Başlık"] = titleElement?.textContent.trim();
+
+            // Portföy Sahibi bilgileri
+            // Ad Soyad
+            const ownerElement = document.querySelector('.username-info-area h5 span');
+            if (ownerElement) {
+                // Style elementi içindeki CSS kuralını bulalım
+                const styles = document.querySelectorAll('style');
+                for (const style of styles) {
+                    const styleContent = style.textContent;
+                    const classMatch = styleContent.match(/\.([^:]+):before\s*{\s*content:\s*['"]([^'"]+)['"]\s*;?\s*}/);
+                    if (classMatch && ownerElement.classList.contains(classMatch[1])) {
+                        model["Portföy Sahibi"]["Ad Soyad"] = classMatch[2];
+                        break;
+                    }
+                }
+            }
+
+            // Telefon
+            const phoneElement = document.querySelector('.pretty-phone-part.show-part span[data-content]');
+            
+            console.log(phoneElement);
+            if (phoneElement) {
+                model["Portföy Sahibi"]["Telefon"] = phoneElement.getAttribute('data-content');
+            }
+
+            // Fiyat bilgisi
+            model["Fiyat"] = document.querySelector('.classifiedInfo > h3')?.textContent.trim();
+            
+            // Lokasyon bilgisi
+            this.parseLocationData(model);
+            
+        } catch (error) {
+            console.error('Ortak veriler parse edilirken hata:', error);
+        }
+    }
+
+    static parseLocationData(model) {
+        try {
+            // Breadcrumb itemlarını bulalım
+            const breadcrumbItems = document.evaluate(
+                '//*[@id="container"]/div[2]/ul/li[@class="bc-item"]/a',
+                document,
+                null,
+                XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+                null
+            );
+
+            // Breadcrumb'daki tüm metinleri toplayalım
+            const items = [];
+            for (let i = 0; i < breadcrumbItems.snapshotLength; i++) {
+                const item = breadcrumbItems.snapshotItem(i);
+                const text = item.textContent.trim();
+                items.push(text);
+            }
+
+            // İlleri kontrol ederek il ve ilçeyi bulalım
+            for (let i = 0; i < items.length; i++) {
+                if (this.ILLER.includes(items[i]) && i + 1 < items.length) {
+                    model["İl"] = items[i];
+                    model["İlçe"] = items[i + 1];
+                    break;
+                }
+            }
+        } catch (error) {
+            console.error('Lokasyon verisi parse edilirken hata:', error);
+        }
+    }
+
     // Ana kategoriler
     static CATEGORIES = {
         KONUT: {
@@ -30,8 +126,6 @@ class SahibindenHandler {
     };
 
     static crawl() {
-        console.log('Sahibinden.com crawl işlemi başladı');
-
         // Breadcrumb itemlarını bulalım
         const breadcrumbItems = document.evaluate(
             '//*[@id="container"]/div[2]/ul/li[@class="bc-item"]/a',
@@ -48,8 +142,6 @@ class SahibindenHandler {
             const categoryText = item.textContent.trim();
             categories.push(categoryText);
         }
-
-        console.log('Tespit edilen kategoriler:', categories);
 
         // Ana kategoriyi ve alt kategoriyi belirleyelim
         let mainCategory = null;
@@ -73,21 +165,14 @@ class SahibindenHandler {
             }
         }
 
-        console.log('Ana Kategori:', mainCategory);
-        console.log('Alt Kategori:', subCategory);
-
         // Kategoriye göre uygun crawling metodunu çağıracağız
         if (mainCategory === this.CATEGORIES.KONUT.name) {
-            console.log('Konut detay sayfası tespit edildi');
             return this.crawlKonut(subCategory);
         } else if (mainCategory === this.CATEGORIES.IS_YERI.name) {
-            console.log('İş yeri detay sayfası tespit edildi');
             return this.crawlIsYeri(subCategory);
         } else if (mainCategory === this.CATEGORIES.ARSA.name) {
-            console.log('Arsa detay sayfası tespit edildi');
             return this.crawlArsa(subCategory);
         } else if (mainCategory === this.CATEGORIES.BINA.name) {
-            console.log('Bina detay sayfası tespit edildi');
             return this.crawlBina();
         } else {
             console.log('Bilinmeyen kategori');
@@ -95,6 +180,132 @@ class SahibindenHandler {
         }
     }
 
+    //#region Bina Kategorisi Metodları
+    static crawlBina() {
+        return this.parseBinaData();
+    }
+    // Bina veri modeli
+    static BinaModel = {
+        "Id": null,
+        "İlan Tarihi": null,
+        "Portföy Sahibi": {
+            "Ad Soyad": null,
+            "Telefon": null
+        },
+        "Kaynak": 'sahibinden.com',
+        "Kategori": 'Bina',
+        "Kiralık / Satılık": null,
+        "Başlık": null,
+        "Açıklama": null,
+        "Fiyat": null,
+        "m² (Brüt)": null,
+        "İl": null,
+        "İlçe": null,
+        "Harita Konumu": null,
+        "Krediye Uygun mu?": null,
+        "Bina Yaşı": null,
+        "Kat Sayısı": null,
+        "Isıtma Tipi": null,
+        "Tapu Durumu": null,
+        "Asansör": null,
+        "Otopark": null
+    };
+    // Genel bina parsing fonksiyonu
+    static parseBinaData() {
+        const model = { ...this.BinaModel };
+
+        try {
+            this.parseCommonData(model);
+            // Başlık bilgisi
+            const titleElement = document.evaluate(
+                '//*[@id="classifiedDetail"]/div/div[1]/h1',
+                document,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+            ).singleNodeValue;
+            model["Başlık"] = titleElement?.textContent.trim();
+            
+            // Açıklama Bilgisi
+            const descElement = document.querySelector('#classifiedDescription');
+            if (descElement) {
+                model["Açıklama"] = descElement.textContent.trim();
+            }
+
+            // Lokasyon bilgisini al
+            this.parseLocationData(model);
+
+            // İlan detaylarını XPath ile alalım
+            const detailItems = document.evaluate(
+                '//*[@id="classifiedDetail"]/div/div[2]/div[2]/ul/li',
+                document,
+                null,
+                XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+                null
+            );
+            // Her bir detay öğesini işleyelim
+            for (let i = 0; i < detailItems.snapshotLength; i++) {
+                const item = detailItems.snapshotItem(i);
+                const strong = item.querySelector('strong');
+                const span = item.querySelector('span');
+                if (strong && span) {
+                    const key = strong.textContent.trim();
+                    const value = span.textContent.trim();
+
+                    //model[key] = value;
+                    switch (key) {
+                        case 'İlan No':
+                            model["Id"] = value;
+                            break;
+                        case 'İlan Tarihi':
+                            model["İlan Tarihi"] = value;
+                            break;
+                        case 'Emlak Tipi':
+                            if (value.includes('Satılık')) {
+                                model["Kiralık / Satılık"] = 'Satılık';
+                            }
+                            else if (value.includes('Kiralık')) {
+                                model["Kiralık / Satılık"] = 'Kiralık';
+                            }
+                            break;
+                        case 'Kat Sayısı':
+                            model["Kat Sayısı"] = value;
+                            break;
+                        case 'Bir Kattaki Daire':
+                            model["Bir Kattaki Daire"] = value;
+                            break;
+                        case 'Isıtma tipi':
+                            model["Isıtma Tipi"] = value;
+                            break;
+                        case 'm²':
+                            model["m² (Brüt)"] = value;
+                            break;
+                        case 'Bina Yaşı':
+                            model["Bina Yaşı"] = value;
+                            break;
+                        case 'Asansör':
+                            model["Asansör"] = value;
+                            break;
+                        case 'Otopark':
+                            model["Otopark"] = value;
+                            break;
+                        case 'Krediye Uygun':
+                            model["Krediye Uygun mu?"] = value;
+                            break;
+                        case 'Tapu Durumu':
+                            model["Tapu Durumu"] = value;
+                            break;
+                    }
+                }
+            }
+            console.log('Parsed Bina Data:', model);
+        } catch (error) {
+            console.error('Veri parsing hatası:', error);
+            return null;
+        }
+    }
+    //#endregion
+    //#region Konut Kategorisi Metodları
     static crawlKonut(subCategory) {
         console.log(`Konut alt kategorisi: ${subCategory}`);
 
@@ -124,266 +335,13 @@ class SahibindenHandler {
                 return null;
         }
     }
-
-    static crawlIsYeri(subCategory) {
-        console.log(`İş yeri alt kategorisi: ${subCategory}`);
-
-        switch (subCategory) {
-            case 'Akaryakıt İstasyonu':
-                return this.crawlIsYeriAkaryakitIstasyonu();
-            case 'Apartman Dairesi':
-                return this.crawlIsYeriApartmanDairesi();
-            case 'Atölye':
-                return this.crawlIsYeriAtolye();
-            case 'AVM':
-                return this.crawlIsYeriAVM();
-            case 'Büfe':
-                return this.crawlIsYeriBufe();
-            case 'Büro & Ofis':
-                return this.crawlIsYeriBuroOfis();
-            case 'Cafe & Bar':
-                return this.crawlIsYeriCafeBar();
-            case 'Çiftlik':
-                return this.crawlIsYeriCiftlik();
-            case 'Depo & Antrepo':
-                return this.crawlIsYeriDepoAntrepo();
-            case 'Düğün Salonu':
-                return this.crawlIsYeriDugunSalonu();
-            case 'Dükkan & Mağaza':
-                return this.crawlIsYeriDukkanMagaza();
-            case 'Enerji Santrali':
-                return this.crawlIsYeriEnerjiSantrali();
-            case 'Fabrika & Üretim Tesisi':
-                return this.crawlIsYeriFabrikaUretimTesisi();
-            case 'Garaj & Park Yeri':
-                return this.crawlIsYeriGarajParkYeri();
-            case 'İmalathane':
-                return this.crawlIsYeriImalathane();
-            case 'İş Hanı Katı & Ofisi':
-                return this.crawlIsYeriIsHaniKatiOfisi();
-            case 'Kantin':
-                return this.crawlIsYeriKantin();
-            case 'Kır & Kahvaltı Bahçesi':
-                return this.crawlIsYeriKirKahvaltiBahcesi();
-            case 'Kıraathane':
-                return this.crawlIsYeriKiraathane();
-            case 'Komple Bina':
-                return this.crawlIsYeriKompleBina();
-            case 'Maden Ocağı':
-                return this.crawlIsYeriMadenOcagi();
-            case 'Otopark / Garaj':
-                return this.crawlIsYeriOtoparkGaraj();
-            case 'Oto Yıkama & Kuaför':
-                return this.crawlIsYeriOtoYikamaKuafor();
-            case 'Pastane, Fırın & Tatlıcı':
-                return this.crawlIsYeriPastaneFirinTatlici();
-            case 'Pazar Yeri':
-                return this.crawlIsYeriPazarYeri();
-            case 'Plaza':
-                return this.crawlIsYeriPlaza();
-            case 'Plaza Katı & Ofisi':
-                return this.crawlIsYeriPlazaKatiOfisi();
-            case 'Radyo İstasyonu & TV Kanalı':
-                return this.crawlIsYeriRadyoTVKanali();
-            case 'Restoran & Lokanta':
-                return this.crawlIsYeriRestoranLokanta();
-            case 'Rezidans Katı & Ofisi':
-                return this.crawlIsYeriRezidansKatiOfisi();
-            case 'Sağlık Merkezi':
-                return this.crawlIsYeriSaglikMerkezi();
-            case 'Sinema & Konferans Salonu':
-                return this.crawlIsYeriSinemaKonferansSalonu();
-            case 'SPA, Hamam & Sauna':
-                return this.crawlIsYeriSPAHamamSauna();
-            case 'Spor Tesisi':
-                return this.crawlIsYeriSporTesisi();
-            case 'Villa':
-                return this.crawlIsYeriVilla();
-            case 'Yurt':
-                return this.crawlIsYeriYurt();
-            default:
-                console.log('Bilinmeyen iş yeri alt kategorisi');
-                return null;
-        }
-    }
-
-    static crawlArsa(subCategory) {
-        console.log(`Arsa alt kategorisi: ${subCategory}`);
-
-        switch (subCategory) {
-            case 'Satılık':
-                return this.crawlArsaSatilik();
-            case 'Kiralık':
-                return this.crawlArsaKiralik();
-            case 'Kat Karşılığı Satılık':
-                return this.crawlArsaKatKarsiligi();
-            default:
-                console.log('Bilinmeyen arsa alt kategorisi');
-                return null;
-        }
-    }
-
-    static crawlBina() {
-        console.log('Bina detayları çekiliyor');
-        return this.parseBinaData();
-    }
-
-    // Bina veri modeli
-    static BinaModel = {
-        "Id": null,
-        "Portföy Sahibi": null,
-        "Kaynak": 'sahibinden.com',
-        "Kategori": 'Bina',
-        "Alt Kategori": null,
-        "Kiralık / Satılık": null,
-        "Başlık": null,
-        "Açıklama": null,
-        "Fiyat": null,
-        "m² (Brüt)": null,
-        "m² (Net)": null,
-        "İl": null,
-        "İlçe": null,
-        "Harita Konumu": null,
-        "İlan Tarihi": null,
-        "Krediye Uygun mu?": null,
-        "Notlar": null,
-        "Bina Yaşı": null,
-        "Kat Sayısı": null,
-        "Isıtma Tipi": null,
-        "Banyo Sayısı": null,
-        "Balkon": null,
-        "Kullanım Durumu": null,
-        "Tapu Durumu": null,
-        "Kira Getirisi": null,
-        "Ada No": null,
-        "Parsel No": null,
-        "Daire Sayısı": null,
-        "Asansör": null,
-        "Otopark": null
-    };
-
-    // Genel bina parsing fonksiyonu
-    static parseBinaData() {
-        const model = { ...this.BinaModel };
-
-        try {
-            // ID ve başlık bilgisi
-            model["Id"] = window.location.pathname.split('/').pop().replace('detay', '').replace(/\//g, '');
-            model["Başlık"] = document.querySelector('h1.classifiedDetailTitle h1')?.textContent.trim();
-
-            // Fiyat bilgisi
-            model["Fiyat"] = document.querySelector('.classifiedInfo > h3')?.textContent.trim();
-
-            // İlan tipi (Satılık/Kiralık)
-            const breadcrumbs = document.querySelectorAll('.breadcrumb li');
-            for (const crumb of breadcrumbs) {
-                const text = crumb.textContent.trim();
-                if (text.includes('Satılık') || text.includes('Kiralık')) {
-                    model["Kiralık / Satılık"] = text;
-                    break;
-                }
-            }
-
-            // İlan detayları
-            const detailRows = document.querySelectorAll('.classifiedInfoList .classifiedInfo');
-            for (const row of detailRows) {
-                const label = row.querySelector('.label')?.textContent.trim();
-                const value = row.querySelector('.value')?.textContent.trim();
-
-                switch (label) {
-                    case 'Brüt m²':
-                        model["m² (Brüt)"] = value;
-                        break;
-                    case 'Net m²':
-                        model["m² (Net)"] = value;
-                        break;
-                    case 'Bina Yaşı':
-                        model["Bina Yaşı"] = value;
-                        break;
-                    case 'Kat Sayısı':
-                        model["Kat Sayısı"] = value;
-                        break;
-                    case 'Isıtma':
-                        model["Isıtma Tipi"] = value;
-                        break;
-                    case 'Banyo Sayısı':
-                        model["Banyo Sayısı"] = value;
-                        break;
-                    case 'Balkon':
-                        model["Balkon"] = value !== 'Yok';
-                        break;
-                    case 'Kullanım Durumu':
-                        model["Kullanım Durumu"] = value;
-                        break;
-                    case 'Tapu Durumu':
-                        model["Tapu Durumu"] = value;
-                        break;
-                    case 'Kira Getirisi':
-                        model["Kira Getirisi"] = value;
-                        break;
-                    case 'Ada No':
-                        model["Ada No"] = value;
-                        break;
-                    case 'Parsel No':
-                        model["Parsel No"] = value;
-                        break;
-                    case 'Daire Sayısı':
-                        model["Daire Sayısı"] = value;
-                        break;
-                    case 'Asansör':
-                        model["Asansör"] = value === 'Var';
-                        break;
-                    case 'Otopark':
-                        model["Otopark"] = value === 'Var';
-                        break;
-                    case 'Krediye Uygun':
-                        model["Krediye Uygun mu?"] = value === 'Evet';
-                        break;
-                }
-            }
-
-            // Lokasyon bilgisi
-            const locationElement = document.querySelector('.classifiedInfo .cityArea');
-            if (locationElement) {
-                const locationParts = locationElement.textContent.trim().split('/');
-                model["İl"] = locationParts[0]?.trim();
-                model["İlçe"] = locationParts[1]?.trim();
-            }
-
-            // Harita koordinatları
-            const mapElement = document.querySelector('#gmap');
-            if (mapElement) {
-                model["Harita Konumu"] = {
-                    lat: mapElement.getAttribute('data-lat'),
-                    lng: mapElement.getAttribute('data-lon')
-                };
-            }
-
-            // İlan tarihi
-            const dateElement = document.querySelector('.classifiedInfo .date');
-            if (dateElement) {
-                model["İlan Tarihi"] = dateElement.textContent.trim();
-            }
-
-            // Açıklama
-            const descElement = document.querySelector('#classifiedDescription');
-            if (descElement) {
-                model["Açıklama"] = descElement.textContent.trim();
-            }
-
-            console.log('Parsed Bina Data:', model);
-            return model;
-
-        } catch (error) {
-            console.error('Veri parsing hatası:', error);
-            return null;
-        }
-    }
-
     // Konut için veri modeli
     static KonutModel = {
         "Id": null,
-        "Portföy Sahibi": null,
+        "Portföy Sahibi": {
+            "Ad Soyad": null,
+            "Telefon": null
+        },
         "Kaynak": 'sahibinden.com',
         "Kategori": 'Konut',
         "Alt Kategori": null,
@@ -423,12 +381,8 @@ class SahibindenHandler {
         const model = { ...this.KonutModel };
 
         try {
-            // ID ve başlık bilgisi
-            model["Id"] = window.location.pathname.split('/').pop().replace('detay', '').replace(/\//g, '');
-            model["Başlık"] = document.querySelector('h1.classifiedDetailTitle h1')?.textContent.trim();
-
-            // Fiyat bilgisi
-            model["Fiyat"] = document.querySelector('.classifiedInfo > h3')?.textContent.trim();
+            // Ortak verileri parse et
+            this.parseCommonData(model);
 
             // İlan tipi (Satılık/Kiralık)
             const breadcrumbs = document.querySelectorAll('.breadcrumb li');
@@ -490,7 +444,7 @@ class SahibindenHandler {
                         model["Tapu Durumu"] = value;
                         break;
                     case 'Krediye Uygun':
-                        model["Krediye Uygun mu?"] = value === 'Evet';
+                        model["Krediye Uygun mu?"] = value;
                         break;
                     case 'Ada No':
                         model["Ada No"] = value;
@@ -501,13 +455,8 @@ class SahibindenHandler {
                 }
             }
 
-            // Lokasyon bilgisi
-            const locationElement = document.querySelector('.classifiedInfo .cityArea');
-            if (locationElement) {
-                const locationParts = locationElement.textContent.trim().split('/');
-                model["İl"] = locationParts[0]?.trim();
-                model["İlçe"] = locationParts[1]?.trim();
-            }
+            // Lokasyon bilgisini al
+            this.parseLocationData(model);
 
             // Harita koordinatları
             const mapElement = document.querySelector('#gmap');
@@ -592,11 +541,96 @@ class SahibindenHandler {
         console.log('Kooperatif detayları çekiliyor');
         return this.parseKonutData();
     }
+    //#endregion
+    //#region İş Yeri Kategorisi Metodları
+    static crawlIsYeri(subCategory) {
+        console.log(`İş yeri alt kategorisi: ${subCategory}`);
 
+        switch (subCategory) {
+            case 'Akaryakıt İstasyonu':
+                return this.crawlIsYeriAkaryakitIstasyonu();
+            case 'Apartman Dairesi':
+                return this.crawlIsYeriApartmanDairesi();
+            case 'Atölye':
+                return this.crawlIsYeriAtolye();
+            case 'AVM':
+                return this.crawlIsYeriAVM();
+            case 'Büfe':
+                return this.crawlIsYeriBufe();
+            case 'Büro & Ofis':
+                return this.crawlIsYeriBuroOfis();
+            case 'Cafe & Bar':
+                return this.crawlIsYeriCafeBar();
+            case 'Çiftlik':
+                return this.crawlIsYeriCiftlik();
+            case 'Depo & Antrepo':
+                return this.crawlIsYeriDepoAntrepo();
+            case 'Düğün Salonu':
+                return this.crawlIsYeriDugunSalonu();
+            case 'Dükkan & Mağaza':
+                return this.crawlIsYeriDukkanMagaza();
+            case 'Enerji Santrali':
+                return this.crawlIsYeriEnerjiSantrali();
+            case 'Fabrika & Üretim Tesisi':
+                return this.crawlIsYeriFabrikaUretimTesisi();
+            case 'Garaj & Park Yeri':
+                return this.crawlIsYeriGarajParkYeri();
+            case 'İmalathane':
+                return this.crawlIsYeriImalathane();
+            case 'İş Hanı Katı & Ofisi':
+                return this.crawlIsYeriIsHaniKatiOfisi();
+            case 'Kantin':
+                return this.crawlIsYeriKantin();
+            case 'Kır & Kahvaltı Bahçesi':
+                return this.crawlIsYeriKirKahvaltiBahcesi();
+            case 'Kıraathane':
+                return this.crawlIsYeriKiraathane();
+            case 'Komple Bina':
+                return this.crawlIsYeriKompleBina();
+            case 'Maden Ocağı':
+                return this.crawlIsYeriMadenOcagi();
+            case 'Otopark / Garaj':
+                return this.crawlIsYeriOtoparkGaraj();
+            case 'Oto Yıkama & Kuaför':
+                return this.crawlIsYeriOtoYikamaKuafor();
+            case 'Pastane, Fırın & Tatlıcı':
+                return this.crawlIsYeriPastaneFirinTatlici();
+            case 'Pazar Yeri':
+                return this.crawlIsYeriPazarYeri();
+            case 'Plaza':
+                return this.crawlIsYeriPlaza();
+            case 'Plaza Katı & Ofisi':
+                return this.crawlIsYeriPlazaKatiOfisi();
+            case 'Radyo İstasyonu & TV Kanalı':
+                return this.crawlIsYeriRadyoTVKanali();
+            case 'Restoran & Lokanta':
+                return this.crawlIsYeriRestoranLokanta();
+            case 'Rezidans Katı & Ofisi':
+                return this.crawlIsYeriRezidansKatiOfisi();
+            case 'Sağlık Merkezi':
+                return this.crawlIsYeriSaglikMerkezi();
+            case 'Sinema & Konferans Salonu':
+                return this.crawlIsYeriSinemaKonferansSalonu();
+            case 'SPA, Hamam & Sauna':
+                return this.crawlIsYeriSPAHamamSauna();
+            case 'Spor Tesisi':
+                return this.crawlIsYeriSporTesisi();
+            case 'Villa':
+                return this.crawlIsYeriVilla();
+            case 'Yurt':
+                return this.crawlIsYeriYurt();
+            default:
+                console.log('Bilinmeyen iş yeri alt kategorisi');
+                return null;
+        }
+    }
     // İş yeri veri modeli
     static IsYeriModel = {
         "Id": null,
-        "Portföy Sahibi": null,
+        "Portföy Sahibi": {
+            "Ad Soyad": null,
+            "Telefon": null
+        },
         "Kaynak": 'sahibinden.com',
         "Kategori": 'İş Yeri',
         "Alt Kategori": null,
@@ -633,12 +667,8 @@ class SahibindenHandler {
         const model = { ...this.IsYeriModel };
 
         try {
-            // ID ve başlık bilgisi
-            model["Id"] = window.location.pathname.split('/').pop().replace('detay', '').replace(/\//g, '');
-            model["Başlık"] = document.querySelector('h1.classifiedDetailTitle h1')?.textContent.trim();
-
-            // Fiyat bilgisi
-            model["Fiyat"] = document.querySelector('.classifiedInfo > h3')?.textContent.trim();
+            // Ortak verileri parse et
+            this.parseCommonData(model);
 
             // İlan tipi (Satılık/Kiralık)
             const breadcrumbs = document.querySelectorAll('.breadcrumb li');
@@ -691,7 +721,7 @@ class SahibindenHandler {
                         model["Tapu Durumu"] = value;
                         break;
                     case 'Krediye Uygun':
-                        model["Krediye Uygun mu?"] = value === 'Evet';
+                        model["Krediye Uygun mu?"] = value;
                         break;
                     case 'Vitrin':
                     case 'Cephe':
@@ -709,13 +739,8 @@ class SahibindenHandler {
                 }
             }
 
-            // Lokasyon bilgisi
-            const locationElement = document.querySelector('.classifiedInfo .cityArea');
-            if (locationElement) {
-                const locationParts = locationElement.textContent.trim().split('/');
-                model["İl"] = locationParts[0]?.trim();
-                model["İlçe"] = locationParts[1]?.trim();
-            }
+            // Lokasyon bilgisini al
+            this.parseLocationData(model);
 
             // Harita koordinatları
             const mapElement = document.querySelector('#gmap');
@@ -930,27 +955,52 @@ class SahibindenHandler {
         console.log('İşyeri - Villa detayları çekiliyor');
         // TODO: Büro & Ofis için özel parsing
     }
+    //#endregion
+    //#region Arsa Kategorisi Metodları
+    static crawlArsa(subCategory) {
+        console.log(`Arsa alt kategorisi: ${subCategory}`);
 
+        switch (subCategory) {
+            case 'Satılık':
+                return this.crawlArsaSatilik();
+            case 'Kiralık':
+                return this.crawlArsaKiralik();
+            case 'Kat Karşılığı Satılık':
+                return this.crawlArsaKatKarsiligi();
+            default:
+                console.log('Bilinmeyen arsa alt kategorisi');
+                return null;
+        }
+    }
     // Arsa alt kategori metodları
     static crawlArsaSatilik() {
+        const model = { ...this.ArsaModel };
         console.log('Satılık arsa detayları çekiliyor');
-        return this.parseArsaData('Satılık');
+        model = this.parseArsaData('Satılık');
+        return model;
     }
 
     static crawlArsaKiralik() {
+        const model = { ...this.ArsaModel };
         console.log('Kiralık arsa detayları çekiliyor');
-        return this.parseArsaData('Kiralık');
+        model = this.parseArsaData('Kiralık');
+        return model;
     }
 
     static crawlArsaKatKarsiligi() {
+        const model = { ...this.ArsaModel };
         console.log('Kat karşılığı arsa detayları çekiliyor');
-        return this.parseArsaData('Kat Karşılığı Satılık');
+        model = this.parseArsaData('Kat Karşılığı Satılık');
+        return model;
     }
 
     // Arsa veri modeli
     static ArsaModel = {
         "Id": null,
-        "Portföy Sahibi": null,
+        "Portföy Sahibi": {
+            "Ad Soyad": null,
+            "Telefon": null
+        },
         "Kaynak": 'sahibinden.com',
         "Kategori": 'Arsa',
         "Alt Kategori": null,
@@ -980,12 +1030,8 @@ class SahibindenHandler {
         const model = { ...this.ArsaModel };
 
         try {
-            // ID ve başlık bilgisi
-            model["Id"] = window.location.pathname.split('/').pop().replace('detay', '').replace(/\//g, '');
-            model["Başlık"] = document.querySelector('h1.classifiedDetailTitle h1')?.textContent.trim();
-
-            // Fiyat bilgisi
-            model["Fiyat"] = document.querySelector('.classifiedInfo > h3')?.textContent.trim();
+            // Ortak verileri parse et
+            this.parseCommonData(model);
 
             // İlan tipi (Satılık/Kiralık)
             const breadcrumbs = document.querySelectorAll('.breadcrumb li');
@@ -1018,10 +1064,10 @@ class SahibindenHandler {
                         model["Tapu Durumu"] = value;
                         break;
                     case 'Kat Karşılığı':
-                        model["Kat Karşılığı mı?"] = value === 'Evet';
+                        model["Kat Karşılığı mı?"] = value;
                         break;
                     case 'Krediye Uygun':
-                        model["Krediye Uygun mu?"] = value === 'Evet';
+                        model["Krediye Uygun mu?"] = value;
                         break;
                     case 'Ada No':
                         model["Ada No"] = value;
@@ -1039,13 +1085,8 @@ class SahibindenHandler {
                 }
             }
 
-            // Lokasyon bilgisi
-            const locationElement = document.querySelector('.classifiedInfo .cityArea');
-            if (locationElement) {
-                const locationParts = locationElement.textContent.trim().split('/');
-                model["İl"] = locationParts[0]?.trim();
-                model["İlçe"] = locationParts[1]?.trim();
-            }
+            // Lokasyon bilgisini al
+            this.parseLocationData(model);
 
             // Harita koordinatları
             const mapElement = document.querySelector('#gmap');
@@ -1079,4 +1120,5 @@ class SahibindenHandler {
             return null;
         }
     }
+    //#endregion
 }

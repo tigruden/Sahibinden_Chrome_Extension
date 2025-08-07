@@ -51,7 +51,6 @@ class CrawlManager {
     static startCrawling() {
         // Önce hangi sitede olduğumuzu tespit edelim
         const site = this.identifySite();
-        console.log('Tespit edilen site:', site);
 
         // Eğer detay sayfasında değilsek işlem yapmayalım
         if (!this.isDetailPage()) {
@@ -65,7 +64,6 @@ class CrawlManager {
         
         switch(site) {
             case 'sahibinden':
-                console.log('Sahibinden.com handler çalıştırılıyor...');
                 SahibindenHandler.crawl();
                 break;
             
